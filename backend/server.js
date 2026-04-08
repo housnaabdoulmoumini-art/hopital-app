@@ -490,3 +490,33 @@ app.listen(PORT, () => {
     console.log(`🔧 Init DB: http://localhost:${PORT}/api/init`);
     console.log(`🔐 Login: http://localhost:${PORT}/api/login\n`);
 });
+
+// ============ INSCRIPTION (REGISTER) ============
+app.post('/api/register', async (req, res) => {
+    try {
+        const { email, password, nom, prenom, telephone, role } = req.body;
+
+        // Vérifier si l'utilisateur existe déjà
+        const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+        if (existing.rows.length > 0) {
+            return res.status(400).json({ error: 'Cet email est déjà utilisé' });
+        }
+
+        // Hacher le mot de passe
+        const passwordHash = await bcrypt.hash(password, 10);
+
+        // Insérer le nouvel utilisateur (rôle par défaut 'patient' si non spécifié)
+        const userRole = role || 'patient';
+        const result = await pool.query(
+            `INSERT INTO users (email, password_hash, nom, prenom, role, telephone)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, nom, prenom, role`,
+            [email, passwordHash, nom, prenom, userRole, telephone || null]
+        );
+
+        res.status(201).json({ success: true, user: result.rows[0] });
+    } catch (error) {
+        console.error('Erreur inscription:', error);
+        res.status(500).json({ error: 'Erreur lors de l\'inscription' });
+    }
+});
+
