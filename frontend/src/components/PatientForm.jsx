@@ -27,7 +27,7 @@ function PatientForm() {
     const fetchPatient = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get(`http://localhost:3001/api/patients/${id}`, {
+            const response = await axios.get(`import.meta.env.VITE_API_URL/api/patients/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setFormData(response.data);
@@ -51,12 +51,12 @@ function PatientForm() {
         try {
             const token = localStorage.getItem('token');
             if (id) {
-                await axios.put(`http://localhost:3001/api/patients/${id}`, formData, {
+                await axios.put(`import.meta.env.VITE_API_URL/api/patients/${id}`, formData, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setSuccess('Patient modifié avec succès');
             } else {
-                await axios.post('http://localhost:3001/api/patients', formData, {
+                await axios.post('import.meta.env.VITE_API_URL/api/patients', formData, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setSuccess('Patient créé avec succès');

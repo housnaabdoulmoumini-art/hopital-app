@@ -51,7 +51,7 @@ function DoctorsList() {
     const fetchDoctors = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get('http://localhost:3001/api/doctors', {
+            const response = await axios.get('import.meta.env.VITE_API_URL/api/doctors', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setDoctors(response.data);
@@ -77,12 +77,12 @@ function DoctorsList() {
         try {
             const token = localStorage.getItem('token');
             if (selectedDoctor) {
-                await axios.put(`http://localhost:3001/api/doctors/${selectedDoctor.id}`, formData, {
+                await axios.put(`import.meta.env.VITE_API_URL/api/doctors/${selectedDoctor.id}`, formData, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setSnackbar({ open: true, message: 'Médecin modifié avec succès', severity: 'success' });
             } else {
-                await axios.post('http://localhost:3001/api/doctors', formData, {
+                await axios.post('import.meta.env.VITE_API_URL/api/doctors', formData, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setSnackbar({ open: true, message: 'Médecin ajouté avec succès', severity: 'success' });
@@ -108,7 +108,7 @@ function DoctorsList() {
         if (window.confirm('Êtes-vous sûr de vouloir supprimer ce médecin ?')) {
             try {
                 const token = localStorage.getItem('token');
-                await axios.delete(`http://localhost:3001/api/doctors/${id}`, {
+                await axios.delete(`import.meta.env.VITE_API_URL/api/doctors/${id}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setSnackbar({ open: true, message: 'Médecin supprimé', severity: 'success' });

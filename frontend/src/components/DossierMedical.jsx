@@ -43,7 +43,7 @@ function DossierMedical() {
     const fetchPatient = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get(`http://localhost:3001/api/patients/${patientId}`, {
+            const response = await axios.get(`import.meta.env.VITE_API_URL/api/patients/${patientId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setPatient(response.data);
@@ -55,7 +55,7 @@ function DossierMedical() {
     const fetchDossiers = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get(`http://localhost:3001/api/dossiers/patient/${patientId}`, {
+            const response = await axios.get(`import.meta.env.VITE_API_URL/api/dossiers/patient/${patientId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setDossiers(response.data);
@@ -67,7 +67,7 @@ function DossierMedical() {
     const fetchRecentPatients = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get('http://localhost:3001/api/patients', {
+            const response = await axios.get('import.meta.env.VITE_API_URL/api/patients', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setDossiers(response.data.slice(0, 10));
@@ -85,7 +85,7 @@ function DossierMedical() {
                 type: formData.type,
                 contenu: formData.contenu
             };
-            await axios.post('http://localhost:3001/api/dossiers', data, {
+            await axios.post('import.meta.env.VITE_API_URL/api/dossiers', data, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setSuccess('Dossier médical ajouté avec succès');

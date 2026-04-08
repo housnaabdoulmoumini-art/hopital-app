@@ -44,9 +44,9 @@ function Ordonnances() {
             const headers = { Authorization: `Bearer ${token}` };
             
             const [ordoRes, patientsRes, medecinsRes] = await Promise.all([
-                axios.get('http://localhost:3001/api/ordonnances', { headers }),
-                axios.get('http://localhost:3001/api/patients', { headers }),
-                axios.get('http://localhost:3001/api/medecins', { headers })
+                axios.get('import.meta.env.VITE_API_URL/api/ordonnances', { headers }),
+                axios.get('import.meta.env.VITE_API_URL/api/patients', { headers }),
+                axios.get('import.meta.env.VITE_API_URL/api/medecins', { headers })
             ]);
             
             setOrdonnances(ordoRes.data);
@@ -118,12 +118,12 @@ function Ordonnances() {
             };
             
             if (isEditing && selectedOrdo) {
-                await axios.put(`http://localhost:3001/api/ordonnances/${selectedOrdo.id}`, dataToSend, {
+                await axios.put(`import.meta.env.VITE_API_URL/api/ordonnances/${selectedOrdo.id}`, dataToSend, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setSnackbar({ open: true, message: 'Ordonnance modifiée', severity: 'success' });
             } else {
-                await axios.post('http://localhost:3001/api/ordonnances', dataToSend, {
+                await axios.post('import.meta.env.VITE_API_URL/api/ordonnances', dataToSend, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setSnackbar({ open: true, message: 'Ordonnance créée', severity: 'success' });
@@ -140,7 +140,7 @@ function Ordonnances() {
         if (window.confirm('Supprimer cette ordonnance ?')) {
             try {
                 const token = localStorage.getItem('token');
-                await axios.delete(`http://localhost:3001/api/ordonnances/${id}`, {
+                await axios.delete(`import.meta.env.VITE_API_URL/api/ordonnances/${id}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setSnackbar({ open: true, message: 'Ordonnance supprimée', severity: 'success' });

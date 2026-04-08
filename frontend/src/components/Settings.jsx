@@ -83,7 +83,7 @@ function Settings() {
     const loadSettings = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get('http://localhost:3001/api/settings', {
+            const response = await axios.get('import.meta.env.VITE_API_URL/api/settings', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (response.data) {
@@ -97,7 +97,7 @@ function Settings() {
     const saveSettings = async () => {
         try {
             const token = localStorage.getItem('token');
-            await axios.post('http://localhost:3001/api/settings', settings, {
+            await axios.post('import.meta.env.VITE_API_URL/api/settings', settings, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setSaved(true);

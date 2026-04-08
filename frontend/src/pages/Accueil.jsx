@@ -41,10 +41,10 @@ function Accueil() {
             const headers = { Authorization: `Bearer ${token}` };
             
             const [patientsRes, medecinsRes, rdvRes, ordonnancesRes] = await Promise.all([
-                axios.get('http://localhost:3001/api/patients', { headers }),
-                axios.get('http://localhost:3001/api/medecins', { headers }),
-                axios.get('http://localhost:3001/api/rendez-vous', { headers }),
-                axios.get('http://localhost:3001/api/ordonnances', { headers })
+                axios.get('import.meta.env.VITE_API_URL/api/patients', { headers }),
+                axios.get('import.meta.env.VITE_API_URL/api/medecins', { headers }),
+                axios.get('import.meta.env.VITE_API_URL/api/rendez-vous', { headers }),
+                axios.get('import.meta.env.VITE_API_URL/api/ordonnances', { headers })
             ]);
             
             const rdvData = rdvRes.data;

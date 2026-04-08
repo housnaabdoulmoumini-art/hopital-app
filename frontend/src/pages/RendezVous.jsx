@@ -47,9 +47,9 @@ function RendezVous() {
             const headers = { Authorization: `Bearer ${token}` };
             
             const [rdvRes, medecinsRes, patientsRes] = await Promise.all([
-                axios.get('http://localhost:3001/api/rendez-vous', { headers }),
-                axios.get('http://localhost:3001/api/medecins', { headers }),
-                axios.get('http://localhost:3001/api/patients', { headers })
+                axios.get('import.meta.env.VITE_API_URL/api/rendez-vous', { headers }),
+                axios.get('import.meta.env.VITE_API_URL/api/medecins', { headers }),
+                axios.get('import.meta.env.VITE_API_URL/api/patients', { headers })
             ]);
             
             setAppointments(rdvRes.data);
@@ -80,7 +80,7 @@ function RendezVous() {
         
         try {
             const token = localStorage.getItem('token');
-            await axios.post('http://localhost:3001/api/rendez-vous', dataToSend, {
+            await axios.post('import.meta.env.VITE_API_URL/api/rendez-vous', dataToSend, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setSnackbar({ open: true, message: 'Rendez-vous ajouté', severity: 'success' });
@@ -105,7 +105,7 @@ function RendezVous() {
         
         try {
             const token = localStorage.getItem('token');
-            await axios.put(`http://localhost:3001/api/rendez-vous/${formData.id}`, dataToSend, {
+            await axios.put(`import.meta.env.VITE_API_URL/api/rendez-vous/${formData.id}`, dataToSend, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setSnackbar({ open: true, message: 'Rendez-vous modifié', severity: 'success' });
@@ -120,7 +120,7 @@ function RendezVous() {
     const updateStatus = async (id, newStatus) => {
         try {
             const token = localStorage.getItem('token');
-            await axios.patch(`http://localhost:3001/api/rendez-vous/${id}/status`, { statut: newStatus }, {
+            await axios.patch(`import.meta.env.VITE_API_URL/api/rendez-vous/${id}/status`, { statut: newStatus }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setSnackbar({ open: true, message: `Statut: ${newStatus}`, severity: 'success' });
@@ -134,7 +134,7 @@ function RendezVous() {
         if (window.confirm('Supprimer ce rendez-vous ?')) {
             try {
                 const token = localStorage.getItem('token');
-                await axios.delete(`http://localhost:3001/api/rendez-vous/${id}`, {
+                await axios.delete(`import.meta.env.VITE_API_URL/api/rendez-vous/${id}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setSnackbar({ open: true, message: 'Rendez-vous supprimé', severity: 'success' });

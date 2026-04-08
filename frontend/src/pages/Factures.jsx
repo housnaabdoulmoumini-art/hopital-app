@@ -46,8 +46,8 @@ function Factures() {
             const headers = { Authorization: `Bearer ${token}` };
             
             const [facturesRes, patientsRes] = await Promise.all([
-                axios.get('http://localhost:3001/api/factures', { headers }),
-                axios.get('http://localhost:3001/api/patients', { headers })
+                axios.get('import.meta.env.VITE_API_URL/api/factures', { headers }),
+                axios.get('import.meta.env.VITE_API_URL/api/patients', { headers })
             ]);
             
             setFactures(facturesRes.data);
