@@ -1,0 +1,46 @@
+services:
+  - type: web
+    name: hopital-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: DB_HOST
+        fromDatabase:
+          name: hopital-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: hopital-db
+          property: port
+      - key: DB_USER
+        fromDatabase:
+          name: hopital-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: hopital-db
+          property: password
+      - key: DB_NAME
+        fromDatabase:
+          name: hopital-db
+          property: database
+      - key: JWT_SECRET
+        generateValue: true
+      - key: NODE_ENV
+        value: production
+
+  - type: web
+    name: hopital-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://hopital-backend.onrender.com
+
+databases:
+  - name: hopital-db
+    plan: free

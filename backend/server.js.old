@@ -1,0 +1,164 @@
+const express = require('express');
+const cors = require('cors');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { Pool } = require('pg');
+
+const app = express();
+const PORT = 3001;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Configuration PostgreSQL
+const pool = new Pool({
+    user: 'hopital_user',
+    host: 'localhost',
+    database: 'hopital_db',
+    password: 'MotDePasse123',
+    port: 5432,
+});
+
+// Tester la connexion
+pool.connect((err, client, release) => {
+    if (err) {
+        console.error('❌ Erreur de connexion PostgreSQL:', err.message);
+    } else {
+        console.log('✅ Connecté à PostgreSQL');
+        release();
+    }
+});
+
+// ============ ROUTES ============
+
+// Route de test
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'OK', message: 'API fonctionnelle' });
+});
+
+// Route d'initialisation - Créer l'admin
+app.post('/api/init', async (req, res) => {
+    try {
+        // Créer la table users si elle n'existe pas
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                nom VARCHAR(100) NOT NULL,
+                prenom VARCHAR(100) NOT NULL,
+                role VARCHAR(50) DEFAULT 'admin',
+                telephone VARCHAR(20),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        
+        const passwordHash = await bcrypt.hash('admin123', 10);
+        
+        // Supprimer l'ancien admin
+        await pool.query("DELETE FROM users WHERE email = $1", ['admin@hopital.com']);
+        
+        // Créer le nouvel admin
+        await pool.query(
+            `INSERT INTO users (email, password_hash, nom, prenom, role, telephone) 
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            ['admin@hopital.com', passwordHash, 'Admin', 'System', 'admin', '0612345678']
+        );
+        
+        res.json({ 
+            success: true, 
+            message: 'Admin créé avec succès',
+            email: 'admin@hopital.com',
+            password: 'admin123'
+        });
+    } catch (error) {
+        console.error('Erreur init:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Route de login
+app.post('/api/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        
+        console.log('Tentative login:', email);
+        
+        // Vérifier si la table users existe
+        const tableCheck = await pool.query(`
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'users'
+            )
+        `);
+        
+        if (!tableCheck.rows[0].exists) {
+            return res.status(500).json({ error: 'Table users non trouvée. Appelez dabord /api/init' });
+        }
+        
+        const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+        
+        if (result.rows.length === 0) {
+            return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
+        }
+        
+        const user = result.rows[0];
+        const isValid = await bcrypt.compare(password, user.password_hash);
+        
+        if (!isValid) {
+            return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
+        }
+        
+        const token = jwt.sign(
+            { id: user.id, email: user.email, role: user.role },
+            'mon_super_secret_key_2024',
+            { expiresIn: '24h' }
+        );
+        
+        res.json({
+            token,
+            user: {
+                id: user.id,
+                email: user.email,
+                nom: user.nom,
+                prenom: user.prenom,
+                role: user.role,
+                telephone: user.telephone
+            }
+        });
+    } catch (error) {
+        console.error('Erreur login:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Route protégée pour tester
+app.get('/api/me', async (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+        return res.status(401).json({ error: 'Token manquant' });
+    }
+    
+    try {
+        const decoded = jwt.verify(token, 'mon_super_secret_key_2024');
+        const result = await pool.query('SELECT id, email, nom, prenom, role FROM users WHERE id = $1', [decoded.id]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        }
+        
+        res.json(result.rows[0]);
+    } catch (error) {
+        res.status(401).json({ error: 'Token invalide' });
+    }
+});
+
+// Démarrer le serveur
+app.listen(PORT, () => {
+    console.log(`\n🚀 Serveur démarré sur http://localhost:${PORT}`);
+    console.log(`📝 Health check: http://localhost:${PORT}/api/health`);
+    console.log(`🔐 Login: http://localhost:${PORT}/api/login`);
+    console.log(`🔧 Init DB: http://localhost:${PORT}/api/init\n`);
+});
