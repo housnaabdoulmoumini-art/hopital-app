@@ -34,50 +34,26 @@ function Ordonnances() {
     });
 
     useEffect(() => {
-        fetchAllData();
+        fetchData();
     }, []);
 
-    const fetchAllData = async () => {
+    const fetchData = async () => {
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
             const headers = { Authorization: `Bearer ${token}` };
             
             const [ordoRes, patientsRes, medecinsRes] = await Promise.all([
-                axios.get('import.meta.env.VITE_API_URL/api/ordonnances', { headers }),
-                axios.get('import.meta.env.VITE_API_URL/api/patients', { headers }),
-                axios.get('import.meta.env.VITE_API_URL/api/medecins', { headers })
+                axios.get('https://hopital-backend.onrender.com/api/ordonnances', { headers }),
+                axios.get('https://hopital-backend.onrender.com/api/patients', { headers }),
+                axios.get('https://hopital-backend.onrender.com/api/medecins', { headers })
             ]);
             
             setOrdonnances(ordoRes.data);
             setPatients(patientsRes.data);
             setMedecins(medecinsRes.data);
         } catch (error) {
-            console.error('Erreur:', error);
-            // Données mockées
-            setPatients([
-                { id: 1, nom: 'DUPONT', prenom: 'Marie', nss: '123456789012345', telephone: '0612345678' },
-                { id: 2, nom: 'MARTIN', prenom: 'Jean', nss: '234567890123456', telephone: '0623456789' },
-            ]);
-            setMedecins([
-                { id: 1, nom: 'DUPONT', prenom: 'Jean', specialite: 'Cardiologue' },
-                { id: 2, nom: 'LEBRUN', prenom: 'Sophie', specialite: 'Pédiatre' },
-            ]);
-            setOrdonnances([
-                {
-                    id: 1,
-                    patient: { id: 1, nom: 'DUPONT', prenom: 'Marie' },
-                    medecin: { id: 1, nom: 'DUPONT', prenom: 'Jean', specialite: 'Cardiologue' },
-                    date_creation: '2024-01-15',
-                    diagnostic: 'Hypertension artérielle',
-                    recommandations: 'Régime sans sel, activité physique régulière',
-                    statut: 'active',
-                    medicaments: [
-                        { nom: 'Lisinopril', dosage: '10mg', duree: '30 jours', instructions: '1 comprimé par jour le matin' },
-                        { nom: 'Amlodipine', dosage: '5mg', duree: '30 jours', instructions: '1 comprimé par jour le soir' }
-                    ]
-                }
-            ]);
+            console.error('Erreur chargement:', error);
         } finally {
             setLoading(false);
         }
@@ -118,20 +94,21 @@ function Ordonnances() {
             };
             
             if (isEditing && selectedOrdo) {
-                await axios.put(`import.meta.env.VITE_API_URL/api/ordonnances/${selectedOrdo.id}`, dataToSend, {
+                await axios.put(`https://hopital-backend.onrender.com/api/ordonnances/${selectedOrdo.id}`, dataToSend, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setSnackbar({ open: true, message: 'Ordonnance modifiée', severity: 'success' });
             } else {
-                await axios.post('import.meta.env.VITE_API_URL/api/ordonnances', dataToSend, {
+                await axios.post('https://hopital-backend.onrender.com/api/ordonnances', dataToSend, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setSnackbar({ open: true, message: 'Ordonnance créée', severity: 'success' });
             }
-            fetchAllData();
+            fetchData();
             setOpenDialog(false);
             resetForm();
         } catch (error) {
+            console.error('Erreur:', error);
             setSnackbar({ open: true, message: 'Erreur lors de l\'enregistrement', severity: 'error' });
         }
     };
@@ -140,11 +117,11 @@ function Ordonnances() {
         if (window.confirm('Supprimer cette ordonnance ?')) {
             try {
                 const token = localStorage.getItem('token');
-                await axios.delete(`import.meta.env.VITE_API_URL/api/ordonnances/${id}`, {
+                await axios.delete(`https://hopital-backend.onrender.com/api/ordonnances/${id}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setSnackbar({ open: true, message: 'Ordonnance supprimée', severity: 'success' });
-                fetchAllData();
+                fetchData();
             } catch (error) {
                 setSnackbar({ open: true, message: 'Erreur suppression', severity: 'error' });
             }
@@ -173,7 +150,6 @@ function Ordonnances() {
         });
     };
 
-    // Fonction d'impression
     const handlePrint = (ordo) => {
         setSelectedOrdo(ordo);
         setOpenPrintDialog(true);
@@ -182,7 +158,6 @@ function Ordonnances() {
     const printOrdonnance = () => {
         const printContent = printRef.current.innerHTML;
         const originalContent = document.body.innerHTML;
-        
         document.body.innerHTML = printContent;
         window.print();
         document.body.innerHTML = originalContent;
@@ -205,34 +180,34 @@ function Ordonnances() {
 
     return (
         <Box>
-            {/* En-tête */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-                <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                    💊 Ordonnances
-                </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>💊 Ordonnances</Typography>
+
+            {/* Barre de recherche et bouton Ajouter sur la même ligne */}
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 4 }}>
+                <Paper sx={{ p: 1, px: 2, borderRadius: 3, display: 'flex', alignItems: 'center', flex: 1, maxWidth: 400 }}>
+                    <SearchIcon sx={{ color: 'action.active', mr: 1 }} />
+                    <TextField 
+                        fullWidth 
+                        placeholder="Rechercher par patient..." 
+                        value={localSearch} 
+                        onChange={(e) => setLocalSearch(e.target.value)} 
+                        variant="standard" 
+                        InputProps={{ disableUnderline: true }} 
+                    />
+                </Paper>
                 <Button 
                     variant="contained" 
                     startIcon={<AddIcon />} 
-                    onClick={() => { resetForm(); setOpenDialog(true); }}
-                    sx={{ bgcolor: '#00bcd4', '&:hover': { bgcolor: '#00acc1' }, py: 1.5, px: 4 }}
+                    onClick={() => { resetForm(); setOpenDialog(true); }} 
+                    sx={{ bgcolor: '#00bcd4', px: 4, py: 1 }}
                 >
-                    + NOUVELLE ORDONNANCE
+                    + Ajouter
                 </Button>
             </Box>
 
-            {/* Recherche */}
-            <Paper sx={{ p: 2, mb: 4, borderRadius: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <SearchIcon sx={{ color: 'action.active' }} />
-                <TextField fullWidth placeholder="Rechercher par patient..." value={localSearch} onChange={(e) => setLocalSearch(e.target.value)} variant="standard" InputProps={{ disableUnderline: true }} />
-            </Paper>
-
-            {/* Liste des ordonnances */}
             {filteredOrdonnances.length === 0 ? (
                 <Paper sx={{ p: 5, textAlign: 'center', borderRadius: 3 }}>
                     <Typography color="text.secondary">Aucune ordonnance trouvée</Typography>
-                    <Button variant="outlined" startIcon={<AddIcon />} onClick={() => { resetForm(); setOpenDialog(true); }} sx={{ mt: 2 }}>
-                        Créer la première ordonnance
-                    </Button>
                 </Paper>
             ) : (
                 <Grid container spacing={3}>
@@ -286,45 +261,33 @@ function Ordonnances() {
                 </Grid>
             )}
 
-            {/* Dialog Impression Ordonnance */}
+            {/* Dialog Impression */}
             <Dialog open={openPrintDialog} onClose={() => setOpenPrintDialog(false)} maxWidth="md" fullWidth>
-                <DialogTitle sx={{ bgcolor: '#1976d2', color: 'white' }}>
-                    🖨️ Aperçu avant impression
-                </DialogTitle>
+                <DialogTitle sx={{ bgcolor: '#1976d2', color: 'white' }}>🖨️ Aperçu ordonnance</DialogTitle>
                 <DialogContent>
                     {selectedOrdo && (
                         <Box ref={printRef} sx={{ p: 4, fontFamily: 'Arial, sans-serif' }}>
-                            {/* En-tête */}
                             <Box sx={{ textAlign: 'center', mb: 4, borderBottom: '2px solid #333', pb: 2 }}>
                                 <Typography variant="h4" sx={{ fontWeight: 'bold' }}>HOPITAL V6</Typography>
                                 <Typography variant="body2">Centre Hospitalier</Typography>
                                 <Typography variant="body2">Tél: 01 23 45 67 89</Typography>
                             </Box>
-
-                            {/* Infos médecin */}
                             <Box sx={{ mb: 3 }}>
                                 <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Médecin prescripteur</Typography>
                                 <Typography>Dr. {selectedOrdo.medecin?.prenom} {selectedOrdo.medecin?.nom}</Typography>
                                 <Typography>Spécialité: {selectedOrdo.medecin?.specialite}</Typography>
                             </Box>
-
-                            {/* Infos patient */}
                             <Box sx={{ mb: 3 }}>
                                 <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Patient</Typography>
                                 <Typography>Nom: {selectedOrdo.patient?.prenom} {selectedOrdo.patient?.nom}</Typography>
                                 <Typography>Date: {new Date(selectedOrdo.date_creation).toLocaleDateString('fr-FR')}</Typography>
                             </Box>
-
-                            {/* Ordonnance */}
                             <Box sx={{ mb: 3 }}>
                                 <Typography variant="h6" sx={{ fontWeight: 'bold', borderBottom: '1px solid #333', mb: 2 }}>Ordonnance</Typography>
-                                
                                 <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mt: 2 }}>Diagnostic:</Typography>
                                 <Typography sx={{ mb: 2 }}>{selectedOrdo.diagnostic}</Typography>
-                                
                                 <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>Recommandations:</Typography>
                                 <Typography sx={{ mb: 2 }}>{selectedOrdo.recommandations}</Typography>
-                                
                                 <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>Traitement prescrit:</Typography>
                                 {selectedOrdo.medicaments?.map((med, idx) => (
                                     <Box key={idx} sx={{ mb: 2, pl: 2 }}>
@@ -334,27 +297,20 @@ function Ordonnances() {
                                     </Box>
                                 ))}
                             </Box>
-
-                            {/* Signature */}
                             <Box sx={{ mt: 5, textAlign: 'right' }}>
-                                <Typography>Fait à {new Date().toLocaleDateString('fr-FR')}</Typography>
-                                <Box sx={{ mt: 2 }}>
-                                    <Typography>Signature du médecin</Typography>
-                                    <Box sx={{ borderTop: '1px solid #333', width: '200px', mt: 1, ml: 'auto' }} />
-                                </Box>
+                                <Typography>Signature du médecin</Typography>
+                                <Box sx={{ borderTop: '1px solid #333', width: '200px', mt: 1, ml: 'auto' }} />
                             </Box>
                         </Box>
                     )}
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenPrintDialog(false)}>Fermer</Button>
-                    <Button onClick={printOrdonnance} variant="contained" startIcon={<PrintIcon />} sx={{ bgcolor: '#1976d2' }}>
-                        Imprimer
-                    </Button>
+                    <Button onClick={printOrdonnance} variant="contained" startIcon={<PrintIcon />} sx={{ bgcolor: '#1976d2' }}>Imprimer</Button>
                 </DialogActions>
             </Dialog>
 
-            {/* Dialog Nouvelle/Modification Ordonnance */}
+            {/* Dialog Ajout/Modification */}
             <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
                 <DialogTitle sx={{ bgcolor: '#00bcd4', color: 'white' }}>
                     {isEditing ? '✏️ Modifier l\'ordonnance' : '➕ Nouvelle ordonnance'}
@@ -383,27 +339,16 @@ function Ordonnances() {
                         <Grid item xs={12}>
                             <TextField fullWidth label="Recommandations" value={formData.recommandations} onChange={(e) => setFormData({...formData, recommandations: e.target.value})} multiline rows={2} />
                         </Grid>
-                        
                         <Grid item xs={12}>
                             <Typography variant="h6" sx={{ mt: 1, mb: 2 }}>💊 Médicaments</Typography>
                             {formData.medicaments.map((med, index) => (
                                 <Paper key={index} sx={{ p: 2, mb: 2, bgcolor: '#f9f9f9' }}>
                                     <Grid container spacing={1}>
-                                        <Grid item xs={12} sm={4}>
-                                            <TextField fullWidth size="small" label="Médicament" value={med.nom} onChange={(e) => handleMedicamentChange(index, 'nom', e.target.value)} />
-                                        </Grid>
-                                        <Grid item xs={12} sm={2}>
-                                            <TextField fullWidth size="small" label="Dosage" value={med.dosage} onChange={(e) => handleMedicamentChange(index, 'dosage', e.target.value)} />
-                                        </Grid>
-                                        <Grid item xs={12} sm={3}>
-                                            <TextField fullWidth size="small" label="Durée" value={med.duree} onChange={(e) => handleMedicamentChange(index, 'duree', e.target.value)} placeholder="7 jours" />
-                                        </Grid>
-                                        <Grid item xs={12} sm={3}>
-                                            <TextField fullWidth size="small" label="Instructions" value={med.instructions} onChange={(e) => handleMedicamentChange(index, 'instructions', e.target.value)} />
-                                        </Grid>
-                                        <Grid item xs={12} sm={1}>
-                                            <IconButton color="error" onClick={() => handleRemoveMedicament(index)}><DeleteIcon /></IconButton>
-                                        </Grid>
+                                        <Grid item xs={12} sm={4}><TextField fullWidth size="small" label="Médicament" value={med.nom} onChange={(e) => handleMedicamentChange(index, 'nom', e.target.value)} /></Grid>
+                                        <Grid item xs={12} sm={2}><TextField fullWidth size="small" label="Dosage" value={med.dosage} onChange={(e) => handleMedicamentChange(index, 'dosage', e.target.value)} /></Grid>
+                                        <Grid item xs={12} sm={3}><TextField fullWidth size="small" label="Durée" value={med.duree} onChange={(e) => handleMedicamentChange(index, 'duree', e.target.value)} placeholder="7 jours" /></Grid>
+                                        <Grid item xs={12} sm={3}><TextField fullWidth size="small" label="Instructions" value={med.instructions} onChange={(e) => handleMedicamentChange(index, 'instructions', e.target.value)} /></Grid>
+                                        <Grid item xs={12} sm={1}><IconButton color="error" onClick={() => handleRemoveMedicament(index)}><DeleteIcon /></IconButton></Grid>
                                     </Grid>
                                 </Paper>
                             ))}

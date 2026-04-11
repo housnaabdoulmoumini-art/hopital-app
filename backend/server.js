@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
 
 const app = express();
+const facturesRoutes = require("./routes/factures");
 const PORT = 3001;
 
 // Middleware
@@ -517,6 +518,300 @@ app.post('/api/register', async (req, res) => {
     } catch (error) {
         console.error('Erreur inscription:', error);
         res.status(500).json({ error: 'Erreur lors de l\'inscription' });
+    }
+});
+
+
+// ============ CRUD FACTURES ============
+
+// Récupérer toutes les factures
+app.get('/api/factures', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT f.*, 
+                   p.nom as patient_nom, p.prenom as patient_prenom, p.telephone as patient_telephone, p.email as patient_email
+            FROM factures f
+            LEFT JOIN patients p ON f.patient_id = p.id
+            ORDER BY f.date_emission DESC
+        `);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Erreur GET factures:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Récupérer une facture par ID
+app.get('/api/factures/:id', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT f.*, 
+                   p.nom as patient_nom, p.prenom as patient_prenom, p.telephone as patient_telephone, p.email as patient_email, p.adresse as patient_adresse
+            FROM factures f
+            LEFT JOIN patients p ON f.patient_id = p.id
+            WHERE f.id = $1
+        `, [req.params.id]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Facture non trouvée' });
+        }
+        res.json(result.rows[0]);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Créer une facture
+app.post('/api/factures', authenticateToken, async (req, res) => {
+    try {
+        const { patient_id, lignes, montant_ht, montant_ttc, date_echeance } = req.body;
+        
+        // Générer un numéro de facture unique
+        const annee = new Date().getFullYear();
+        const count = await pool.query('SELECT COUNT(*) FROM factures');
+        const numero = `FAC-${annee}-${String(parseInt(count.rows[0].count) + 1).padStart(3, '0')}`;
+        
+        const result = await pool.query(
+            `INSERT INTO factures (numero, patient_id, date_echeance, montant_ht, montant_ttc, lignes, statut)
+             VALUES ($1, $2, $3, $4, $5, $6, 'en_attente') RETURNING *`,
+            [numero, patient_id, date_echeance, montant_ht, montant_ttc, JSON.stringify(lignes)]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error('Erreur POST facture:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Mettre à jour le statut d'une facture
+app.patch('/api/factures/:id/status', authenticateToken, async (req, res) => {
+    try {
+        const { statut } = req.body;
+        const result = await pool.query(
+            `UPDATE factures SET statut = $1 WHERE id = $2 RETURNING *`,
+            [statut, req.params.id]
+        );
+        res.json(result.rows[0]);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Supprimer une facture
+app.delete('/api/factures/:id', authenticateToken, async (req, res) => {
+    try {
+        await pool.query('DELETE FROM factures WHERE id = $1', [req.params.id]);
+        res.json({ message: 'Facture supprimée' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+
+// ============ CRUD FACTURES ============
+
+// Récupérer toutes les factures
+app.get('/api/factures', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT f.*, 
+                   p.nom as patient_nom, p.prenom as patient_prenom
+            FROM factures f
+            LEFT JOIN patients p ON f.patient_id = p.id
+            ORDER BY f.date_emission DESC
+        `);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Erreur GET factures:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Créer une facture
+app.post('/api/factures', authenticateToken, async (req, res) => {
+    try {
+        const { patient_id, lignes, montant_ht, montant_ttc, date_echeance, emetteur_id, emetteur_type, emetteur_nom } = req.body;
+        
+        // Générer un numéro de facture
+        const annee = new Date().getFullYear();
+        const count = await pool.query('SELECT COUNT(*) FROM factures');
+        const numero = `FAC-${annee}-${String(parseInt(count.rows[0].count) + 1).padStart(3, '0')}`;
+        
+        const result = await pool.query(
+            `INSERT INTO factures (numero, patient_id, date_echeance, montant_ht, montant_ttc, lignes, statut, emetteur_id, emetteur_type, emetteur_nom)
+             VALUES ($1, $2, $3, $4, $5, $6, 'en_attente', $7, $8, $9) RETURNING *`,
+            [numero, patient_id, date_echeance, montant_ht, montant_ttc, JSON.stringify(lignes), emetteur_id, emetteur_type, emetteur_nom]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error('Erreur POST facture:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Mettre à jour le statut d'une facture
+app.patch('/api/factures/:id/status', authenticateToken, async (req, res) => {
+    try {
+        const { statut } = req.body;
+        const result = await pool.query(
+            `UPDATE factures SET statut = $1 WHERE id = $2 RETURNING *`,
+            [statut, req.params.id]
+        );
+        res.json(result.rows[0]);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+
+// ============ CRUD ORDONNANCES COMPLET ============
+
+// Créer une ordonnance
+app.post('/api/ordonnances', authenticateToken, async (req, res) => {
+    try {
+        const { patient_id, medecin_id, diagnostic, recommandations, medicaments } = req.body;
+        
+        console.log('📝 Création ordonnance:', { patient_id, medecin_id, diagnostic });
+        
+        // Vérifier que le patient et le médecin existent
+        const patientCheck = await pool.query('SELECT id FROM patients WHERE id = $1', [patient_id]);
+        if (patientCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Patient non trouvé' });
+        }
+        
+        const medecinCheck = await pool.query('SELECT id FROM medecins WHERE id = $1', [medecin_id]);
+        if (medecinCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Médecin non trouvé' });
+        }
+        
+        const result = await pool.query(
+            `INSERT INTO ordonnances (patient_id, medecin_id, diagnostic, recommandations, statut)
+             VALUES ($1, $2, $3, $4, 'active') RETURNING *`,
+            [patient_id, medecin_id, diagnostic, recommandations]
+        );
+        
+        const ordonnanceId = result.rows[0].id;
+        
+        if (medicaments && medicaments.length > 0) {
+            for (const med of medicaments) {
+                if (med.nom) {
+                    await pool.query(
+                        `INSERT INTO ordonnance_medicaments (ordonnance_id, nom, dosage, duree, instructions)
+                         VALUES ($1, $2, $3, $4, $5)`,
+                        [ordonnanceId, med.nom, med.dosage, med.duree, med.instructions]
+                    );
+                }
+            }
+        }
+        
+        res.status(201).json({ success: true, message: 'Ordonnance créée', ordonnance: result.rows[0] });
+    } catch (error) {
+        console.error('Erreur POST ordonnance:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Modifier une ordonnance
+app.put('/api/ordonnances/:id', authenticateToken, async (req, res) => {
+    try {
+        const { patient_id, medecin_id, diagnostic, recommandations, medicaments } = req.body;
+        const id = req.params.id;
+        
+        await pool.query(
+            `UPDATE ordonnances SET patient_id=$1, medecin_id=$2, diagnostic=$3, recommandations=$4
+             WHERE id=$5`,
+            [patient_id, medecin_id, diagnostic, recommandations, id]
+        );
+        
+        // Supprimer les anciens médicaments
+        await pool.query('DELETE FROM ordonnance_medicaments WHERE ordonnance_id = $1', [id]);
+        
+        // Insérer les nouveaux médicaments
+        if (medicaments && medicaments.length > 0) {
+            for (const med of medicaments) {
+                if (med.nom) {
+                    await pool.query(
+                        `INSERT INTO ordonnance_medicaments (ordonnance_id, nom, dosage, duree, instructions)
+                         VALUES ($1, $2, $3, $4, $5)`,
+                        [id, med.nom, med.dosage, med.duree, med.instructions]
+                    );
+                }
+            }
+        }
+        
+        res.json({ success: true, message: 'Ordonnance modifiée' });
+    } catch (error) {
+        console.error('Erreur PUT ordonnance:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Supprimer une ordonnance
+app.delete('/api/ordonnances/:id', authenticateToken, async (req, res) => {
+    try {
+        await pool.query('DELETE FROM ordonnances WHERE id = $1', [req.params.id]);
+        res.json({ success: true, message: 'Ordonnance supprimée' });
+    } catch (error) {
+        console.error('Erreur DELETE ordonnance:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+
+// ============ CRUD FACTURES COMPLET ============
+
+// Créer une facture
+app.post('/api/factures', authenticateToken, async (req, res) => {
+    try {
+        const { patient_id, medecin_id, montant_ht, montant_ttc, date_echeance, description } = req.body;
+        
+        console.log('📝 Création facture:', { patient_id, medecin_id, montant_ht });
+        
+        // Vérifier que le patient et le médecin existent
+        const patientCheck = await pool.query('SELECT id FROM patients WHERE id = $1', [patient_id]);
+        if (patientCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Patient non trouvé' });
+        }
+        
+        const medecinCheck = await pool.query('SELECT id FROM medecins WHERE id = $1', [medecin_id]);
+        if (medecinCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Médecin non trouvé' });
+        }
+        
+        // Générer un numéro de facture unique
+        const annee = new Date().getFullYear();
+        const count = await pool.query('SELECT COUNT(*) FROM factures');
+        const numero = `FAC-${annee}-${String(parseInt(count.rows[0].count) + 1).padStart(3, '0')}`;
+        
+        const result = await pool.query(
+            `INSERT INTO factures (numero, patient_id, medecin_id, date_echeance, montant_ht, montant_ttc, description, statut)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'en_attente') RETURNING *`,
+            [numero, patient_id, medecin_id, date_echeance, montant_ht, montant_ttc, description]
+        );
+        
+        res.status(201).json({ success: true, message: 'Facture créée', facture: result.rows[0] });
+    } catch (error) {
+        console.error('Erreur POST facture:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Modifier une facture
+app.put('/api/factures/:id', authenticateToken, async (req, res) => {
+    try {
+        const { patient_id, medecin_id, montant_ht, montant_ttc, date_echeance, description, statut } = req.body;
+        const id = req.params.id;
+        
+        const result = await pool.query(
+            `UPDATE factures SET patient_id=$1, medecin_id=$2, montant_ht=$3, montant_ttc=$4, date_echeance=$5, description=$6, statut=$7
+             WHERE id=$8 RETURNING *`,
+            [patient_id, medecin_id, montant_ht, montant_ttc, date_echeance, description, statut, id]
+        );
+        
+        res.json({ success: true, message: 'Facture modifiée', facture: result.rows[0] });
+    } catch (error) {
+        console.error('Erreur PUT facture:', error);
+        res.status(500).json({ error: error.message });
     }
 });
 

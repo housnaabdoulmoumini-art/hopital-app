@@ -8,18 +8,19 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
-import ReceiptIcon from '@mui/icons-material/Receipt';
 import PaidIcon from '@mui/icons-material/Paid';
 import PendingIcon from '@mui/icons-material/Pending';
 import SearchIcon from '@mui/icons-material/Search';
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import PrintIcon from '@mui/icons-material/Print';
-import VisibilityIcon from '@mui/icons-material/Visibility';
+import ReceiptIcon from '@mui/icons-material/Receipt';
+import PersonIcon from '@mui/icons-material/Person';
+import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import axios from 'axios';
 
 function Factures() {
     const [factures, setFactures] = useState([]);
     const [patients, setPatients] = useState([]);
+    const [medecins, setMedecins] = useState([]);
     const [loading, setLoading] = useState(true);
     const [openDialog, setOpenDialog] = useState(false);
     const [openPrintDialog, setOpenPrintDialog] = useState(false);
@@ -29,146 +30,119 @@ function Factures() {
     const printRef = useRef();
     
     const [formData, setFormData] = useState({
-        patient_id: '', lignes: [{ description: '', quantite: 1, prix_unitaire: 0 }]
+        patient_id: '',
+        medecin_id: '',
+        montant_ht: '',
+        montant_ttc: '',
+        date_echeance: '',
+        description: ''
     });
 
-    const currentYear = new Date().getFullYear();
-    const currentYearStr = currentYear.toString();
-
     useEffect(() => {
-        fetchAllData();
+        fetchData();
     }, []);
 
-    const fetchAllData = async () => {
+    const fetchData = async () => {
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
             const headers = { Authorization: `Bearer ${token}` };
             
-            const [facturesRes, patientsRes] = await Promise.all([
-                axios.get('import.meta.env.VITE_API_URL/api/factures', { headers }),
-                axios.get('import.meta.env.VITE_API_URL/api/patients', { headers })
+            const [facturesRes, patientsRes, medecinsRes] = await Promise.all([
+                axios.get('https://hopital-backend.onrender.com/api/factures', { headers }),
+                axios.get('https://hopital-backend.onrender.com/api/patients', { headers }),
+                axios.get('https://hopital-backend.onrender.com/api/medecins', { headers })
             ]);
             
             setFactures(facturesRes.data);
             setPatients(patientsRes.data);
+            setMedecins(medecinsRes.data);
         } catch (error) {
-            console.error('Erreur:', error);
-            setPatients([
-                { id: 1, nom: 'DUPONT', prenom: 'Marie', telephone: '0612345678', email: 'marie@email.com', adresse: '12 rue de Paris' },
-                { id: 2, nom: 'MARTIN', prenom: 'Jean', telephone: '0623456789', email: 'jean@email.com', adresse: '15 avenue de la République' },
-            ]);
-            setFactures([
-                {
-                    id: 1,
-                    numero: `FAC-${currentYearStr}-001`,
-                    patient: { id: 1, nom: 'DUPONT', prenom: 'Marie', telephone: '0612345678', email: 'marie@email.com', adresse: '12 rue de Paris' },
-                    date_emission: new Date().toISOString().split('T')[0],
-                    date_echeance: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
-                    lignes: [
-                        { description: 'Consultation cardiologue', quantite: 1, prix_unitaire: 60, montant: 60 },
-                        { description: 'Échographie cardiaque', quantite: 1, prix_unitaire: 120, montant: 120 }
-                    ],
-                    total_ht: 180,
-                    total_ttc: 216,
-                    statut: 'en_attente'
-                },
-                {
-                    id: 2,
-                    numero: `FAC-${currentYearStr}-002`,
-                    patient: { id: 2, nom: 'MARTIN', prenom: 'Jean', telephone: '0623456789', email: 'jean@email.com', adresse: '15 avenue de la République' },
-                    date_emission: new Date().toISOString().split('T')[0],
-                    date_echeance: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
-                    lignes: [
-                        { description: 'Consultation pédiatre', quantite: 1, prix_unitaire: 50, montant: 50 }
-                    ],
-                    total_ht: 50,
-                    total_ttc: 60,
-                    statut: 'payee'
-                }
-            ]);
+            console.error('Erreur chargement:', error);
         } finally {
             setLoading(false);
         }
     };
 
-    const generateFactureNumber = () => {
-        const nextNumber = (factures.length + 1).toString().padStart(3, '0');
-        return `FAC-${currentYearStr}-${nextNumber}`;
+    const calculateTTC = (ht) => {
+        const htValue = parseFloat(ht) || 0;
+        return htValue * 1.2;
     };
 
-    const calculateTotal = (lignes) => {
-        const ht = lignes.reduce((sum, l) => sum + (l.quantite * l.prix_unitaire), 0);
-        return { ht, ttc: ht * 1.2 };
-    };
-
-    const handleAddLigne = () => {
+    const handleMontantChange = (value) => {
+        const ht = parseFloat(value) || 0;
         setFormData({
             ...formData,
-            lignes: [...formData.lignes, { description: '', quantite: 1, prix_unitaire: 0 }]
+            montant_ht: ht,
+            montant_ttc: ht * 1.2
         });
     };
 
-    const handleRemoveLigne = (index) => {
-        const newLignes = formData.lignes.filter((_, i) => i !== index);
-        setFormData({ ...formData, lignes: newLignes });
-    };
-
-    const handleLigneChange = (index, field, value) => {
-        const newLignes = [...formData.lignes];
-        newLignes[index][field] = value;
-        if (field === 'quantite' || field === 'prix_unitaire') {
-            newLignes[index].montant = newLignes[index].quantite * newLignes[index].prix_unitaire;
+    const handleSubmit = async () => {
+        if (!formData.patient_id) {
+            setSnackbar({ open: true, message: 'Veuillez sélectionner un patient', severity: 'error' });
+            return;
         }
-        setFormData({ ...formData, lignes: newLignes });
-    };
-
-    const handleSubmit = () => {
-        if (!formData.patient_id || formData.lignes.length === 0 || !formData.lignes[0].description) {
-            setSnackbar({ open: true, message: 'Veuillez remplir les informations', severity: 'error' });
+        if (!formData.medecin_id) {
+            setSnackbar({ open: true, message: 'Veuillez sélectionner un médecin', severity: 'error' });
+            return;
+        }
+        if (!formData.montant_ht || formData.montant_ht <= 0) {
+            setSnackbar({ open: true, message: 'Veuillez saisir un montant valide', severity: 'error' });
+            return;
+        }
+        if (!formData.date_echeance) {
+            setSnackbar({ open: true, message: 'Veuillez saisir une date d\'échéance', severity: 'error' });
             return;
         }
         
-        const patient = patients.find(p => p.id === parseInt(formData.patient_id));
-        const totals = calculateTotal(formData.lignes);
-        
-        const newFacture = {
-            id: factures.length + 1,
-            numero: generateFactureNumber(),
-            patient: { 
-                id: patient.id, 
-                nom: patient.nom, 
-                prenom: patient.prenom,
-                telephone: patient.telephone,
-                email: patient.email,
-                adresse: patient.adresse
-            },
-            date_emission: new Date().toISOString().split('T')[0],
-            date_echeance: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
-            lignes: formData.lignes,
-            total_ht: totals.ht,
-            total_ttc: totals.ttc,
-            statut: 'en_attente'
-        };
-        
-        setFactures([...factures, newFacture]);
-        setOpenDialog(false);
-        resetForm();
-        setSnackbar({ open: true, message: `Facture ${newFacture.numero} créée`, severity: 'success' });
+        try {
+            const token = localStorage.getItem('token');
+            const response = await axios.post('https://hopital-backend.onrender.com/api/factures', {
+                patient_id: parseInt(formData.patient_id),
+                medecin_id: parseInt(formData.medecin_id),
+                montant_ht: formData.montant_ht,
+                montant_ttc: formData.montant_ttc,
+                date_echeance: formData.date_echeance,
+                description: formData.description
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            
+            setSnackbar({ open: true, message: `Facture ${response.data.numero} créée avec succès`, severity: 'success' });
+            fetchData();
+            setOpenDialog(false);
+            resetForm();
+        } catch (error) {
+            console.error('Erreur création facture:', error);
+            setSnackbar({ open: true, message: 'Erreur lors de la création', severity: 'error' });
+        }
     };
 
-    const updateStatut = (id, newStatut) => {
-        setFactures(factures.map(f => f.id === id ? { ...f, statut: newStatut } : f));
-        setSnackbar({ open: true, message: `Facture ${newStatut === 'payee' ? 'payée' : 'annulée'}`, severity: 'success' });
+    const updateStatut = async (id, newStatut) => {
+        try {
+            const token = localStorage.getItem('token');
+            await axios.patch(`https://hopital-backend.onrender.com/api/factures/${id}/status`, { statut: newStatut }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setSnackbar({ open: true, message: `Facture ${newStatut === 'payee' ? 'payée' : 'annulée'}`, severity: 'success' });
+            fetchData();
+        } catch (error) {
+            setSnackbar({ open: true, message: 'Erreur mise à jour', severity: 'error' });
+        }
     };
 
     const resetForm = () => {
         setFormData({
-            patient_id: '', lignes: [{ description: '', quantite: 1, prix_unitaire: 0 }]
+            patient_id: '',
+            medecin_id: '',
+            montant_ht: '',
+            montant_ttc: '',
+            date_echeance: '',
+            description: ''
         });
     };
 
-    // Fonction d'impression
     const handlePrint = (facture) => {
         setSelectedFacture(facture);
         setOpenPrintDialog(true);
@@ -177,24 +151,10 @@ function Factures() {
     const printFacture = () => {
         const printContent = printRef.current.innerHTML;
         const originalContent = document.body.innerHTML;
-        
         document.body.innerHTML = printContent;
         window.print();
         document.body.innerHTML = originalContent;
         window.location.reload();
-    };
-
-    // Génération PDF (via l'impression)
-    const handlePDF = (facture) => {
-        setSelectedFacture(facture);
-        setTimeout(() => {
-            const printContent = printRef.current.innerHTML;
-            const originalContent = document.body.innerHTML;
-            
-            document.body.innerHTML = printContent;
-            window.print();
-            document.body.innerHTML = originalContent;
-        }, 100);
     };
 
     const getStatusChip = (statut) => {
@@ -204,13 +164,14 @@ function Factures() {
     };
 
     const filteredFactures = factures.filter(f =>
-        f.patient?.nom?.toLowerCase().includes(localSearch.toLowerCase()) ||
-        f.patient?.prenom?.toLowerCase().includes(localSearch.toLowerCase()) ||
-        f.numero?.toLowerCase().includes(localSearch.toLowerCase())
+        (f.patient_nom?.toLowerCase() || '').includes(localSearch.toLowerCase()) ||
+        (f.patient_prenom?.toLowerCase() || '').includes(localSearch.toLowerCase()) ||
+        (f.medecin_nom?.toLowerCase() || '').includes(localSearch.toLowerCase()) ||
+        (f.numero?.toLowerCase() || '').includes(localSearch.toLowerCase())
     );
 
-    const totalEnAttente = factures.filter(f => f.statut === 'en_attente').reduce((sum, f) => sum + (f.total_ttc || 0), 0);
-    const totalPaye = factures.filter(f => f.statut === 'payee').reduce((sum, f) => sum + (f.total_ttc || 0), 0);
+    const totalEnAttente = factures.filter(f => f.statut === 'en_attente').reduce((sum, f) => sum + (parseFloat(f.montant_ttc) || 0), 0);
+    const totalPaye = factures.filter(f => f.statut === 'payee').reduce((sum, f) => sum + (parseFloat(f.montant_ttc) || 0), 0);
 
     if (loading) {
         return (
@@ -222,10 +183,28 @@ function Factures() {
 
     return (
         <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-                <Typography variant="h4" sx={{ fontWeight: 'bold' }}>💰 Factures</Typography>
-                <Button variant="contained" startIcon={<AddIcon />} onClick={() => { resetForm(); setOpenDialog(true); }} sx={{ bgcolor: '#00bcd4', py: 1.5, px: 4 }}>
-                    + NOUVELLE FACTURE
+            <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>💰 Factures</Typography>
+
+            {/* Barre de recherche et bouton Ajouter sur la même ligne */}
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 4 }}>
+                <Paper sx={{ p: 1, px: 2, borderRadius: 3, display: 'flex', alignItems: 'center', flex: 1, maxWidth: 400 }}>
+                    <SearchIcon sx={{ color: 'action.active', mr: 1 }} />
+                    <TextField 
+                        fullWidth 
+                        placeholder="Rechercher par patient, médecin ou numéro..." 
+                        value={localSearch} 
+                        onChange={(e) => setLocalSearch(e.target.value)} 
+                        variant="standard" 
+                        InputProps={{ disableUnderline: true }} 
+                    />
+                </Paper>
+                <Button 
+                    variant="contained" 
+                    startIcon={<AddIcon />} 
+                    onClick={() => { resetForm(); setOpenDialog(true); }} 
+                    sx={{ bgcolor: '#00bcd4', px: 4, py: 1 }}
+                >
+                    + Ajouter
                 </Button>
             </Box>
 
@@ -234,21 +213,21 @@ function Factures() {
                 <Grid item xs={12} sm={6} md={3}>
                     <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 3 }}>
                         <Typography variant="h4" color="warning.main">{factures.filter(f => f.statut === 'en_attente').length}</Typography>
-                        <Typography variant="body2">Factures en attente</Typography>
+                        <Typography variant="body2">En attente</Typography>
                         <Typography variant="caption">{totalEnAttente.toFixed(2)} €</Typography>
                     </Paper>
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
                     <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 3 }}>
                         <Typography variant="h4" color="success.main">{factures.filter(f => f.statut === 'payee').length}</Typography>
-                        <Typography variant="body2">Factures payées</Typography>
+                        <Typography variant="body2">Payées</Typography>
                         <Typography variant="caption">{totalPaye.toFixed(2)} €</Typography>
                     </Paper>
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
                     <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 3 }}>
                         <Typography variant="h4" color="primary.main">{factures.length}</Typography>
-                        <Typography variant="body2">Total factures</Typography>
+                        <Typography variant="body2">Total</Typography>
                     </Paper>
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
@@ -259,19 +238,6 @@ function Factures() {
                 </Grid>
             </Grid>
 
-            {/* Recherche */}
-            <Paper sx={{ p: 2, mb: 4, borderRadius: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <SearchIcon sx={{ color: 'action.active' }} />
-                <TextField 
-                    fullWidth 
-                    placeholder="Rechercher par patient ou numéro..." 
-                    value={localSearch} 
-                    onChange={(e) => setLocalSearch(e.target.value)} 
-                    variant="standard" 
-                    InputProps={{ disableUnderline: true }} 
-                />
-            </Paper>
-
             {/* Tableau des factures */}
             <TableContainer component={Paper} sx={{ borderRadius: 3 }}>
                 <Table>
@@ -279,6 +245,7 @@ function Factures() {
                         <TableRow>
                             <TableCell>N° Facture</TableCell>
                             <TableCell>Patient</TableCell>
+                            <TableCell>Médecin</TableCell>
                             <TableCell>Date émission</TableCell>
                             <TableCell>Date échéance</TableCell>
                             <TableCell>Montant TTC</TableCell>
@@ -288,15 +255,30 @@ function Factures() {
                     </TableHead>
                     <TableBody>
                         {filteredFactures.length === 0 ? (
-                            <TableRow><TableCell colSpan={7} align="center">Aucune facture</TableCell></TableRow>
+                            <TableRow>
+                                <TableCell colSpan={8} align="center">
+                                    <Typography sx={{ py: 4, color: 'text.secondary' }}>Aucune facture trouvée</Typography>
+                                </TableCell>
+                            </TableRow>
                         ) : (
                             filteredFactures.map((facture) => (
                                 <TableRow key={facture.id} hover>
                                     <TableCell><Chip label={facture.numero} size="small" variant="outlined" /></TableCell>
-                                    <TableCell>{facture.patient?.prenom} {facture.patient?.nom}</TableCell>
+                                    <TableCell>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Avatar sx={{ width: 24, height: 24, bgcolor: '#1976d2' }}><PersonIcon sx={{ fontSize: 14 }} /></Avatar>
+                                            {facture.patient_prenom} {facture.patient_nom}
+                                        </Box>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Avatar sx={{ width: 24, height: 24, bgcolor: '#2e7d32' }}><LocalHospitalIcon sx={{ fontSize: 14 }} /></Avatar>
+                                            Dr. {facture.medecin_prenom} {facture.medecin_nom}
+                                        </Box>
+                                    </TableCell>
                                     <TableCell>{new Date(facture.date_emission).toLocaleDateString('fr-FR')}</TableCell>
                                     <TableCell>{new Date(facture.date_echeance).toLocaleDateString('fr-FR')}</TableCell>
-                                    <TableCell><strong>{facture.total_ttc?.toFixed(2)} €</strong></TableCell>
+                                    <TableCell><strong>{parseFloat(facture.montant_ttc).toFixed(2)} €</strong></TableCell>
                                     <TableCell>{getStatusChip(facture.statut)}</TableCell>
                                     <TableCell>
                                         {facture.statut === 'en_attente' && (
@@ -304,11 +286,8 @@ function Factures() {
                                                 <PaidIcon />
                                             </IconButton>
                                         )}
-                                        <IconButton size="small" color="primary" onClick={() => handlePrint(facture)} title="Aperçu / Imprimer">
+                                        <IconButton size="small" color="primary" onClick={() => handlePrint(facture)} title="Imprimer">
                                             <PrintIcon />
-                                        </IconButton>
-                                        <IconButton size="small" color="secondary" onClick={() => handlePDF(facture)} title="Générer PDF">
-                                            <PictureAsPdfIcon />
                                         </IconButton>
                                     </TableCell>
                                 </TableRow>
@@ -321,156 +300,139 @@ function Factures() {
             {/* Dialog Nouvelle Facture */}
             <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
                 <DialogTitle sx={{ bgcolor: '#00bcd4', color: 'white' }}>
-                    ➕ Nouvelle Facture - Année {currentYearStr}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><ReceiptIcon /> Nouvelle facture</Box>
                 </DialogTitle>
                 <DialogContent>
                     <Grid container spacing={2} sx={{ mt: 1 }}>
-                        <Grid item xs={12}>
-                            <FormControl fullWidth>
-                                <InputLabel>Patient</InputLabel>
-                                <Select value={formData.patient_id} onChange={(e) => setFormData({...formData, patient_id: e.target.value})} label="Patient">
-                                    {patients.map(p => <MenuItem key={p.id} value={p.id}>{p.prenom} {p.nom}</MenuItem>)}
+                        <Grid item xs={12} sm={6}>
+                            <FormControl fullWidth required>
+                                <InputLabel>Patient *</InputLabel>
+                                <Select 
+                                    value={formData.patient_id} 
+                                    onChange={(e) => setFormData({...formData, patient_id: e.target.value})} 
+                                    label="Patient *"
+                                >
+                                    <MenuItem value="">-- Sélectionner un patient --</MenuItem>
+                                    {patients.map(p => (
+                                        <MenuItem key={p.id} value={p.id}>
+                                            {p.prenom} {p.nom} - {p.telephone || 'Pas de téléphone'}
+                                        </MenuItem>
+                                    ))}
                                 </Select>
                             </FormControl>
                         </Grid>
-                        
-                        <Grid item xs={12}>
-                            <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>📝 Détails de la facture</Typography>
-                            {formData.lignes.map((ligne, index) => (
-                                <Paper key={index} sx={{ p: 2, mb: 2, bgcolor: '#f9f9f9' }}>
-                                    <Grid container spacing={1}>
-                                        <Grid item xs={12} sm={5}>
-                                            <TextField fullWidth size="small" label="Description" value={ligne.description} onChange={(e) => handleLigneChange(index, 'description', e.target.value)} />
-                                        </Grid>
-                                        <Grid item xs={12} sm={2}>
-                                            <TextField fullWidth size="small" label="Quantité" type="number" value={ligne.quantite} onChange={(e) => handleLigneChange(index, 'quantite', parseInt(e.target.value) || 0)} />
-                                        </Grid>
-                                        <Grid item xs={12} sm={3}>
-                                            <TextField fullWidth size="small" label="Prix unitaire (€)" type="number" value={ligne.prix_unitaire} onChange={(e) => handleLigneChange(index, 'prix_unitaire', parseFloat(e.target.value) || 0)} />
-                                        </Grid>
-                                        <Grid item xs={12} sm={2}>
-                                            <IconButton color="error" onClick={() => handleRemoveLigne(index)}><DeleteIcon /></IconButton>
-                                        </Grid>
-                                    </Grid>
-                                </Paper>
-                            ))}
-                            <Button size="small" startIcon={<AddIcon />} onClick={handleAddLigne}>Ajouter une ligne</Button>
+                        <Grid item xs={12} sm={6}>
+                            <FormControl fullWidth required>
+                                <InputLabel>Médecin *</InputLabel>
+                                <Select 
+                                    value={formData.medecin_id} 
+                                    onChange={(e) => setFormData({...formData, medecin_id: e.target.value})} 
+                                    label="Médecin *"
+                                >
+                                    <MenuItem value="">-- Sélectionner un médecin --</MenuItem>
+                                    {medecins.map(m => (
+                                        <MenuItem key={m.id} value={m.id}>
+                                            Dr. {m.prenom} {m.nom} - {m.specialite}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
                         </Grid>
-                        
-                        <Grid item xs={12}>
-                            <Divider sx={{ my: 2 }} />
-                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 3 }}>
-                                <Typography variant="h6">Total HT: {calculateTotal(formData.lignes).ht.toFixed(2)} €</Typography>
-                                <Typography variant="h6" color="primary">Total TTC: {calculateTotal(formData.lignes).ttc.toFixed(2)} €</Typography>
-                            </Box>
+                        <Grid item xs={12} sm={6}>
+                            <TextField 
+                                fullWidth 
+                                type="number" 
+                                label="Montant HT (€)" 
+                                value={formData.montant_ht} 
+                                onChange={(e) => handleMontantChange(e.target.value)} 
+                                required 
+                                InputProps={{ inputProps: { min: 0, step: 0.01 } }}
+                            />
                         </Grid>
-                        
+                        <Grid item xs={12} sm={6}>
+                            <TextField 
+                                fullWidth 
+                                type="number" 
+                                label="Montant TTC (€)" 
+                                value={formData.montant_ttc} 
+                                disabled 
+                                InputProps={{ readOnly: true }}
+                            />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                            <TextField 
+                                fullWidth 
+                                type="date" 
+                                label="Date d'échéance" 
+                                value={formData.date_echeance} 
+                                onChange={(e) => setFormData({...formData, date_echeance: e.target.value})} 
+                                InputLabelProps={{ shrink: true }} 
+                                required 
+                            />
+                        </Grid>
                         <Grid item xs={12}>
-                            <Alert severity="info" sx={{ mt: 2 }}>
-                                Le numéro de facture sera généré automatiquement au format: FAC-{currentYearStr}-XXX
-                            </Alert>
+                            <TextField 
+                                fullWidth 
+                                label="Description" 
+                                value={formData.description} 
+                                onChange={(e) => setFormData({...formData, description: e.target.value})} 
+                                multiline 
+                                rows={3} 
+                                placeholder="Détails de la prestation (consultation, examen, médicaments...)"
+                            />
                         </Grid>
                     </Grid>
                 </DialogContent>
                 <DialogActions sx={{ p: 3 }}>
                     <Button onClick={() => setOpenDialog(false)}>Annuler</Button>
-                    <Button onClick={handleSubmit} variant="contained" sx={{ bgcolor: '#00bcd4' }}>Créer Facture</Button>
+                    <Button onClick={handleSubmit} variant="contained" sx={{ bgcolor: '#00bcd4' }}>
+                        Émettre la facture
+                    </Button>
                 </DialogActions>
             </Dialog>
 
-            {/* Dialog Aperçu / Impression Facture */}
+            {/* Dialog Impression */}
             <Dialog open={openPrintDialog} onClose={() => setOpenPrintDialog(false)} maxWidth="md" fullWidth>
-                <DialogTitle sx={{ bgcolor: '#1976d2', color: 'white' }}>
-                    🖨️ Aperçu de la facture
-                </DialogTitle>
+                <DialogTitle sx={{ bgcolor: '#1976d2', color: 'white' }}>🖨️ Aperçu de la facture</DialogTitle>
                 <DialogContent>
                     {selectedFacture && (
                         <Box ref={printRef} sx={{ p: 4, fontFamily: 'Arial, sans-serif' }}>
-                            {/* En-tête */}
                             <Box sx={{ textAlign: 'center', mb: 4, borderBottom: '2px solid #333', pb: 2 }}>
                                 <Typography variant="h4" sx={{ fontWeight: 'bold' }}>HOPITAL V6</Typography>
                                 <Typography variant="body2">Centre Hospitalier</Typography>
                                 <Typography variant="body2">Tél: 01 23 45 67 89</Typography>
-                                <Typography variant="body2">Email: contact@hopital.com</Typography>
                             </Box>
-
-                            {/* Infos facture */}
                             <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between' }}>
                                 <Box>
-                                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>FACTURE</Typography>
-                                    <Typography>N°: {selectedFacture.numero}</Typography>
+                                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>FACTURE N° {selectedFacture.numero}</Typography>
                                     <Typography>Date d'émission: {new Date(selectedFacture.date_emission).toLocaleDateString('fr-FR')}</Typography>
                                     <Typography>Date d'échéance: {new Date(selectedFacture.date_echeance).toLocaleDateString('fr-FR')}</Typography>
                                 </Box>
-                                <Box sx={{ textAlign: 'right' }}>
-                                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Statut</Typography>
-                                    <Chip 
-                                        label={selectedFacture.statut === 'payee' ? 'PAYÉE' : 'EN ATTENTE'} 
-                                        color={selectedFacture.statut === 'payee' ? 'success' : 'warning'} 
-                                        size="small" 
-                                    />
-                                </Box>
+                                <Chip label={selectedFacture.statut === 'payee' ? 'PAYÉE' : 'EN ATTENTE'} color={selectedFacture.statut === 'payee' ? 'success' : 'warning'} size="small" />
                             </Box>
-
-                            {/* Infos patient */}
                             <Box sx={{ mb: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>Facturé à :</Typography>
-                                <Typography>{selectedFacture.patient?.prenom} {selectedFacture.patient?.nom}</Typography>
-                                <Typography>{selectedFacture.patient?.adresse}</Typography>
-                                <Typography>Tél: {selectedFacture.patient?.telephone}</Typography>
-                                <Typography>Email: {selectedFacture.patient?.email}</Typography>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>Patient:</Typography>
+                                <Typography>{selectedFacture.patient_prenom} {selectedFacture.patient_nom}</Typography>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mt: 1 }}>Médecin:</Typography>
+                                <Typography>Dr. {selectedFacture.medecin_prenom} {selectedFacture.medecin_nom}</Typography>
                             </Box>
-
-                            {/* Tableau des prestations */}
-                            <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
-                                <Table size="small">
-                                    <TableHead sx={{ bgcolor: '#f5f5f5' }}>
-                                        <TableRow>
-                                            <TableCell>Description</TableCell>
-                                            <TableCell align="center">Quantité</TableCell>
-                                            <TableCell align="right">Prix unitaire</TableCell>
-                                            <TableCell align="right">Montant</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {selectedFacture.lignes.map((ligne, idx) => (
-                                            <TableRow key={idx}>
-                                                <TableCell>{ligne.description}</TableCell>
-                                                <TableCell align="center">{ligne.quantite}</TableCell>
-                                                <TableCell align="right">{ligne.prix_unitaire.toFixed(2)} €</TableCell>
-                                                <TableCell align="right">{(ligne.quantite * ligne.prix_unitaire).toFixed(2)} €</TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-
-                            {/* Totaux */}
-                            <Box sx={{ textAlign: 'right', mt: 2 }}>
-                                <Typography variant="body1">Total HT: <strong>{selectedFacture.total_ht?.toFixed(2)} €</strong></Typography>
-                                <Typography variant="body1">TVA (20%): <strong>{(selectedFacture.total_ht * 0.2).toFixed(2)} €</strong></Typography>
-                                <Typography variant="h6" sx={{ mt: 1, color: '#1976d2' }}>
-                                    Total TTC: <strong>{selectedFacture.total_ttc?.toFixed(2)} €</strong>
-                                </Typography>
-                            </Box>
-
-                            {/* Pied de page */}
-                            <Box sx={{ mt: 5, textAlign: 'center', borderTop: '1px solid #ddd', pt: 2 }}>
-                                <Typography variant="caption" color="text.secondary">
-                                    Merci de votre confiance. En cas de retard de paiement, des pénalités seront appliquées.
-                                </Typography>
+                            {selectedFacture.description && (
+                                <Box sx={{ mb: 3 }}>
+                                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>Description:</Typography>
+                                    <Typography>{selectedFacture.description}</Typography>
+                                </Box>
+                            )}
+                            <Box sx={{ textAlign: 'right', mt: 3 }}>
+                                <Typography variant="h6">Total HT: {parseFloat(selectedFacture.montant_ht).toFixed(2)} €</Typography>
+                                <Typography variant="h6">TVA (20%): {(parseFloat(selectedFacture.montant_ht) * 0.2).toFixed(2)} €</Typography>
+                                <Typography variant="h5" sx={{ color: '#1976d2', mt: 1 }}>Total TTC: {parseFloat(selectedFacture.montant_ttc).toFixed(2)} €</Typography>
                             </Box>
                         </Box>
                     )}
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenPrintDialog(false)}>Fermer</Button>
-                    <Button onClick={printFacture} variant="contained" startIcon={<PrintIcon />} sx={{ bgcolor: '#1976d2' }}>
-                        Imprimer
-                    </Button>
-                    <Button onClick={printFacture} variant="contained" startIcon={<PictureAsPdfIcon />} sx={{ bgcolor: '#f44336' }}>
-                        Générer PDF
-                    </Button>
+                    <Button onClick={printFacture} variant="contained" startIcon={<PrintIcon />} sx={{ bgcolor: '#1976d2' }}>Imprimer</Button>
                 </DialogActions>
             </Dialog>
 
