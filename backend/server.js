@@ -844,3 +844,32 @@ app.post('/api/init', async (req, res) => {
     }
 });
 
+
+// Route d'initialisation de la base de données
+app.post('/api/init', async (req, res) => {
+    try {
+        console.log('🔄 Initialisation de la base de données...');
+        
+        // Créer l'utilisateur admin s'il n'existe pas
+        const adminCheck = await pool.query("SELECT * FROM users WHERE email = 'admin@hopital.com'");
+        
+        if (adminCheck.rows.length === 0) {
+            const bcrypt = require('bcryptjs');
+            const passwordHash = await bcrypt.hash('admin123', 10);
+            await pool.query(
+                `INSERT INTO users (email, password_hash, nom, prenom, role, telephone)
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                ['admin@hopital.com', passwordHash, 'Admin', 'System', 'admin', '0612345678']
+            );
+            console.log('✅ Admin créé avec succès');
+            res.json({ success: true, message: 'Admin créé', credentials: { email: 'admin@hopital.com', password: 'admin123' } });
+        } else {
+            console.log('✅ Admin existe déjà');
+            res.json({ success: true, message: 'Admin existe déjà', credentials: { email: 'admin@hopital.com', password: 'admin123' } });
+        }
+    } catch (error) {
+        console.error('Erreur init:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
